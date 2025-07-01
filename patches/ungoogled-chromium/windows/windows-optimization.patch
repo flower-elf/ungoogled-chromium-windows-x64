@@ -1,0 +1,100 @@
+--- a/build/config/win/BUILD.gn
++++ b/build/config/win/BUILD.gn
+@@ -123,5 +123,5 @@
+     if (current_cpu == "x86" || current_cpu == "x64") {
+-      cflags += [ "-msse3" ]
++      cflags += [ "-mavx" ]
+     }
+ 
+     # Enable ANSI escape codes if something emulating them is around (cmd.exe
+--- a/third_party/tflite/BUILD.gn
++++ b/third_party/tflite/BUILD.gn
+@@ -97,6 +97,15 @@
+     "NEON2SSE_DISABLE_PERFORMANCE_WARNING",
+     "TFL_STATIC_LIBRARY_BUILD",
+   ]
++  if (current_cpu == "x64") {
++    cflags += [
++      "-march=x86-64",
++      "-msse4.2",
++      "-mno-avx",
++      "-mno-avx2",
++      "-mno-fma",
++    ]
++  }
+   if (!is_debug) {
+     defines += [ "TF_LITE_STRIP_ERROR_STRINGS" ]
+   }
+--- a/build/config/compiler/BUILD.gn
++++ b/build/config/compiler/BUILD.gn
+@@ -803,8 +803,8 @@
+-  import_instr_limit = 30
++  import_instr_limit = 100
+
+   if (is_win) {
+     ldflags += [
+       "/opt:lldltojobs=all",
+       "-mllvm:-import-instr-limit=$import_instr_limit",
+       "-mllvm:-disable-auto-upgrade-debug-info",
+     ]
+   } else {
+@@ -1191,7 +1191,7 @@
+   if (!is_debug && use_thin_lto && is_a_target_toolchain) {
+     if (thin_lto_enable_optimizations) {
+-      lto_opt_level = 2
++      lto_opt_level = 3
+     } else {
+       lto_opt_level = 0
+     }
+@@ -2672,10 +2672,7 @@
+     # clang-cl's /O2 corresponds to clang's -O3, and really want -O2 for
+     # consistency with the other platforms.
+     cflags = [
+-      "/O2",
+-      "/clang:-O2",
+-    ] + common_optimize_on_cflags
++      "-Xclang", "-O3",
++    ] + common_optimize_on_cflags
+ 
+     # The `-O3` for clang turns on extra optimizations compared to the standard
+     # `-O2`. But for rust, `-Copt-level=3` is the default and is thus reliable
+@@ -2695,7 +2692,7 @@
+     # vectorization while otherwise optimizing for size.
+     rustflags = [ "-Copt-level=s" ]
+   } else {
+-    cflags = [ "-O2" ] + common_optimize_on_cflags
++    cflags = [ "-O3" ] + common_optimize_on_cflags
+     # The `-O3` for clang turns on extra optimizations compared to the standard
+     # `-O2`. But for rust, `-Copt-level=3` is the default and is thus reliable
+     # to use.
+@@ -2756,11 +2753,9 @@
+   if (is_win) {
+     # Favor speed over size, /O2 must be before the common flags.
+     # /O2 implies /Ot, /Oi, and /GF.
+-    cflags = [ "/O2" ] + common_optimize_on_cflags
++    cflags = [ "-Xclang", "-O3" ] + common_optimize_on_cflags
+   } else if (optimize_for_fuzzing) {
+     cflags = [ "-O1" ] + common_optimize_on_cflags
+   } else {
+-    cflags = [ "-O2" ] + common_optimize_on_cflags
++    cflags = [ "-O3" ] + common_optimize_on_cflags
+   }
+   rustflags = [ "-Copt-level=3" ]
+ }
+@@ -2776,10 +2771,7 @@
+   if (is_win) {
+     # Favor speed over size, /O2 must be before the common flags.
+     # /O2 implies /Ot, /Oi, and /GF.
+-    cflags = [ "/O2" ] + common_optimize_on_cflags
+-    if (is_clang) {
+-      cflags += [ "/clang:-O3" ]
+-    }
++    cflags = [ "-Xclang", "-O3" ] + common_optimize_on_cflags
+   } else if (optimize_for_fuzzing) {
+     cflags = [ "-O1" ] + common_optimize_on_cflags
+   } else {
+@@ -3161,3 +3161,3 @@
+ config("no_symbols") {
+   if (is_win) {
+-    ldflags = [ "/DEBUG" ]
++    ldflags = [ "/DEBUG:NONE" ]
