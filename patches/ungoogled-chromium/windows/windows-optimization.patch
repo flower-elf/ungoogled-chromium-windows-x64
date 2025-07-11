@@ -1,6 +1,6 @@
 --- a/build/config/win/BUILD.gn
 +++ b/build/config/win/BUILD.gn
-@@ -123,5 +123,5 @@
+@@ -125,5 +125,5 @@
      if (current_cpu == "x86" || current_cpu == "x64") {
 -      cflags += [ "-msse3" ]
 +      cflags += [ "-mavx" ]
@@ -27,7 +27,7 @@
    }
 --- a/build/config/compiler/BUILD.gn
 +++ b/build/config/compiler/BUILD.gn
-@@ -803,8 +803,8 @@
+@@ -804,8 +804,8 @@
 -  import_instr_limit = 30
 +  import_instr_limit = 100
 
