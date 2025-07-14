@@ -36,6 +36,18 @@
    }
 --- a/build/config/compiler/BUILD.gn
 +++ b/build/config/compiler/BUILD.gn
+@@ -556,7 +556,7 @@
+-    if (!use_sized_deallocation) {
++    # if (!use_sized_deallocation) {
+       if (is_win) {
+-        cflags += [ "/Zc:sizedDealloc-" ]
++        cflags += [ "/Zc:sizedDealloc" ]
+       } else {
+-        cflags += [ "-fno-sized-deallocation" ]
++        cflags += [ "-fsized-deallocation" ]
+       }
+-    }
++    # }
 @@ -610,23 +610,23 @@
      if (default_toolchain != "//build/toolchain/cros:target" &&
          !llvm_android_mainline) {
