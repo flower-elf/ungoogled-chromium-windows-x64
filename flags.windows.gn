@@ -27,3 +27,5 @@ toolchain_supports_rust_thin_lto = true
 dcheck_always_on = false
 use_siso = true
 use_remoteexec = false
+win_enable_cfg_guards = true
+disable_fieldtrial_testing_config = true
