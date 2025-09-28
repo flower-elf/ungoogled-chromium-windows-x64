@@ -1,0 +1,264 @@
+--- a/build/config/win/BUILD.gn
++++ b/build/config/win/BUILD.gn
+@@ -125,5 +125,5 @@
+     if (current_cpu == "x86" || current_cpu == "x64") {
+-      cflags += [ "-msse3" ]
++      cflags += [ "-mavx", "/clang:-w" ]
+     }
+ 
+     # Enable ANSI escape codes if something emulating them is around (cmd.exe
+@@ -193,7 +193,7 @@
+     if (use_lld) {
+       # String tail merging leads to smaller binaries, but they don't compress
+       # as well, leading to increased mini_installer size (crbug.com/838449).
+-      ldflags += [ "/OPT:NOLLDTAILMERGE" ]
++      ldflags += [ "/OPT:LLDTAILMERGE" ]
+     }
+ 
+     # TODO(siggi): Is this of any use anymore?
+--- a/third_party/tflite/BUILD.gn
++++ b/third_party/tflite/BUILD.gn
+@@ -97,6 +97,15 @@
+     "NEON2SSE_DISABLE_PERFORMANCE_WARNING",
+     "TFL_STATIC_LIBRARY_BUILD",
+   ]
++  if (current_cpu == "x64") {
++    cflags += [
++      "-march=x86-64",
++      "-msse4.2",
++      "-mno-avx",
++      "-mno-avx2",
++      "-mno-fma",
++    ]
++  }
+   if (!is_debug) {
+     defines += [ "TF_LITE_STRIP_ERROR_STRINGS" ]
+   }
+--- a/build/config/compiler/BUILD.gn
++++ b/build/config/compiler/BUILD.gn
+@@ -556,7 +556,7 @@
+-    if (!use_sized_deallocation) {
++    # if (!use_sized_deallocation) {
+       if (is_win) {
+-        cflags += [ "/Zc:sizedDealloc-" ]
++        cflags += [ "/Zc:sizedDealloc" ]
+       } else {
+-        cflags += [ "-fno-sized-deallocation" ]
++        cflags += [ "-fsized-deallocation" ]
+       }
+-    }
++    # }
+@@ -610,23 +610,23 @@
+     if (default_toolchain != "//build/toolchain/cros:target" &&
+         !llvm_android_mainline) {
+       cflags += [
+-        "-mllvm",
+-        "-split-threshold-for-reg-with-hint=0",
++        # "-mllvm",
++        # "-split-threshold-for-reg-with-hint=0",
+       ]
+       if (use_thin_lto && is_a_target_toolchain) {
+         if (is_win) {
+-          ldflags += [ "-mllvm:-split-threshold-for-reg-with-hint=0" ]
++          # ldflags += [ "-mllvm:-split-threshold-for-reg-with-hint=0" ]
+         } else {
+-          ldflags += [ "-Wl,-mllvm,-split-threshold-for-reg-with-hint=0" ]
++          # ldflags += [ "-Wl,-mllvm,-split-threshold-for-reg-with-hint=0" ]
+         }
+       }
+     }
+ 
+     # TODO(crbug.com/40192287): Investigate why/if this should be needed.
+     if (is_win) {
+-      cflags += [ "/clang:-ffp-contract=off" ]
++      cflags += [ "/clang:-ffp-contract=fast" ]
+     } else {
+-      cflags += [ "-ffp-contract=off" ]
++      cflags += [ "-ffp-contract=fast" ]
+     }
+ 
+     # Enable ELF CREL (see crbug.com/357878242) for all platforms that use ELF
+@@ -804,8 +804,8 @@
+-  import_instr_limit = 30
++  import_instr_limit = 100
+
+   if (is_win) {
+     ldflags += [
+       "/opt:lldltojobs=all",
+       "-mllvm:-import-instr-limit=$import_instr_limit",
+       "-mllvm:-disable-auto-upgrade-debug-info",
+     ]
+   } else {
+@@ -1075,6 +1075,10 @@ config("compiler") {
+ 
+     # We use clang-rt sanitizer runtimes.
+     "-Zexternal-clangrt",
++
++    "-Ctarget-cpu=x86-64-v2",
++    "-Ctarget-feature=+avx",
++    "-Cllvm-args=-fp-contract=off",
+   ]
+ 
+   if (!is_win || force_rustc_color_output) {
+@@ -1191,7 +1191,7 @@
+   if (!is_debug && use_thin_lto && is_a_target_toolchain) {
+     if (thin_lto_enable_optimizations) {
+-      lto_opt_level = 2
++      lto_opt_level = 3
+     } else {
+       lto_opt_level = 0
+     }
+@@ -2672,10 +2672,7 @@
+     # clang-cl's /O2 corresponds to clang's -O3, and really want -O2 for
+     # consistency with the other platforms.
+     cflags = [
+-      "/O2",
+-      "/clang:-O2",
+-    ] + common_optimize_on_cflags
++      "-Xclang", "-O3",
++    ] + common_optimize_on_cflags
+ 
+     # The `-O3` for clang turns on extra optimizations compared to the standard
+     # `-O2`. But for rust, `-Copt-level=3` is the default and is thus reliable
+@@ -2695,7 +2692,7 @@
+     # vectorization while otherwise optimizing for size.
+     rustflags = [ "-Copt-level=s" ]
+   } else {
+-    cflags = [ "-O2" ] + common_optimize_on_cflags
++    cflags = [ "-O3" ] + common_optimize_on_cflags
+     # The `-O3` for clang turns on extra optimizations compared to the standard
+     # `-O2`. But for rust, `-Copt-level=3` is the default and is thus reliable
+     # to use.
+@@ -2756,11 +2753,9 @@
+   if (is_win) {
+     # Favor speed over size, /O2 must be before the common flags.
+     # /O2 implies /Ot, /Oi, and /GF.
+-    cflags = [ "/O2" ] + common_optimize_on_cflags
++    cflags = [ "-Xclang", "-O3" ] + common_optimize_on_cflags
+   } else if (optimize_for_fuzzing) {
+     cflags = [ "-O1" ] + common_optimize_on_cflags
+   } else {
+-    cflags = [ "-O2" ] + common_optimize_on_cflags
++    cflags = [ "-O3" ] + common_optimize_on_cflags
+   }
+   rustflags = [ "-Copt-level=3" ]
+ }
+@@ -2776,10 +2771,7 @@
+   if (is_win) {
+     # Favor speed over size, /O2 must be before the common flags.
+     # /O2 implies /Ot, /Oi, and /GF.
+-    cflags = [ "/O2" ] + common_optimize_on_cflags
+-    if (is_clang) {
+-      cflags += [ "/clang:-O3" ]
+-    }
++    cflags = [ "-Xclang", "-O3" ] + common_optimize_on_cflags
+   } else if (optimize_for_fuzzing) {
+     cflags = [ "-O1" ] + common_optimize_on_cflags
+   } else {
+@@ -3161,3 +3161,3 @@
+ config("no_symbols") {
+   if (is_win) {
+-    ldflags = [ "/DEBUG" ]
++    ldflags = [ "/DEBUG:NONE" ]
+
+--- a/media/base/supported_types.cc
++++ b/media/base/supported_types.cc
+@@ -229,25 +229,12 @@
+ #endif  // !BUILDFLAG(USE_PROPRIETARY_CODECS)
+ 
+ bool IsDecoderHevcProfileSupported(const VideoType& type) {
+-  if (!IsDecoderColorSpaceSupported(type.color_space)) {
+-    return false;
+-  }
+-
+-#if BUILDFLAG(ENABLE_PLATFORM_HEVC)
+-#if BUILDFLAG(PLATFORM_HAS_OPTIONAL_HEVC_DECODE_SUPPORT)
+-#if BUILDFLAG(IS_CHROMEOS)
+-  if (!base::FeatureList::IsEnabled(kPlatformHEVCDecoderSupport)) {
+-    return false;
+-  }
+-#endif  // BUILDFLAG(IS_CHROMEOS)
+-  return GetSupplementalDecoderVideoProfileCache()->IsProfileSupported(
+-      type.profile);
+-#else
++#if BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS)
+   return true;
+-#endif  // BUIDFLAG(PLATFORM_HAS_OPTIONAL_HEVC_DECODE_SUPPORT)
+ #else
+-  return false;
+-#endif  // BUILDFLAG(ENABLE_PLATFORM_HEVC)
++  return GetSupplementalDecoderVideoProfileCache()->IsProfileSupported(
++      type.profile);
++#endif  // BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS)
+ }
+ 
+ bool IsDecoderVp9ProfileSupported(const VideoType& type) {
+@@ -586,7 +573,7 @@
+ 
+ bool IsDecoderBuiltInVideoCodec(VideoCodec codec) {
+ #if BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS) && BUILDFLAG(USE_PROPRIETARY_CODECS)
+-  if (codec == VideoCodec::kH264) {
++  if (codec == VideoCodec::kH264 || codec == VideoCodec::kHEVC) {
+     return true;
+   }
+ #endif  // BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS) &&
+--- a/media/ffmpeg/ffmpeg_common.cc
++++ b/media/ffmpeg/ffmpeg_common.cc
+@@ -67,7 +67,7 @@
+ const char* GetAllowedVideoDecoders() {
+   // This should match the configured lists in //third_party/ffmpeg.
+ #if BUILDFLAG(USE_PROPRIETARY_CODECS) && BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS)
+-  return "h264";
++  return "h264,hevc";
+ #else
+   return "";
+ #endif
+--- a/media/filters/ffmpeg_video_decoder.cc
++++ b/media/filters/ffmpeg_video_decoder.cc
+@@ -82,7 +82,6 @@
+     case VideoCodec::kUnknown:
+     case VideoCodec::kVC1:
+     case VideoCodec::kMPEG2:
+-    case VideoCodec::kHEVC:
+     case VideoCodec::kVP9:
+     case VideoCodec::kAV1:
+     case VideoCodec::kDolbyVision:
+@@ -93,6 +93,7 @@
+       NOTREACHED();
+ 
+     case VideoCodec::kH264:
++    case VideoCodec::kHEVC:
+       // Normalize to three threads for 1080p content, then scale linearly
+       // with number of pixels.
+       // Examples:
+@@ -126,8 +126,9 @@
+ 
+ // static
+ bool FFmpegVideoDecoder::IsCodecSupported(VideoCodec codec) {
+-  // We only build support for H.264.
+-  return codec == VideoCodec::kH264 && IsDecoderBuiltInVideoCodec(codec);
++  // We only build support for H.264 / H.265.
++  return (codec == VideoCodec::kH264 || codec == VideoCodec::kHEVC) &&
++         IsDecoderBuiltInVideoCodec(codec);
+ }
+ 
+ FFmpegVideoDecoder::FFmpegVideoDecoder(MediaLog* media_log)
+--- a/media/webrtc/webrtc_features.cc
++++ b/media/webrtc/webrtc_features.cc
+@@ -77,14 +77,14 @@
+ // accelerator reports support of encoding in L1T2.
+ BASE_FEATURE(kWebRtcH265L1T2,
+              "WebRtcH265L1T2",
+-             base::FEATURE_DISABLED_BY_DEFAULT);
++             base::FEATURE_ENABLED_BY_DEFAULT);
+ 
+ // When enabled, allows H.265 L1T3 to be used for sending WebRTC streams, if the
+ // accelerator reports support of encoding in L1T3. If this is enabled, L1T2 is
+ // also implied to be enabled.
+ BASE_FEATURE(kWebRtcH265L1T3,
+              "WebRtcH265L1T3",
+-             base::FEATURE_DISABLED_BY_DEFAULT);
++             base::FEATURE_ENABLED_BY_DEFAULT);
+ 
+ // When enabled, allows AV1 HW encoding to be used for WebRTC streams, if the
+ // platform accelerator supports encoding of AV1.
