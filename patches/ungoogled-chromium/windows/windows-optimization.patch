@@ -36,7 +36,7 @@
    }
 --- a/build/config/compiler/BUILD.gn
 +++ b/build/config/compiler/BUILD.gn
-@@ -556,7 +556,7 @@
+@@ -577,7 +577,7 @@
 -    if (!use_sized_deallocation) {
 +    # if (!use_sized_deallocation) {
        if (is_win) {
@@ -48,7 +48,7 @@
        }
 -    }
 +    # }
-@@ -610,23 +610,23 @@
+@@ -631,23 +631,23 @@
      if (default_toolchain != "//build/toolchain/cros:target" &&
          !llvm_android_mainline) {
        cflags += [
@@ -78,7 +78,7 @@
      }
  
      # Enable ELF CREL (see crbug.com/357878242) for all platforms that use ELF
-@@ -804,8 +804,8 @@
+@@ -825,8 +825,8 @@
 -  import_instr_limit = 30
 +  import_instr_limit = 100
 
@@ -204,7 +204,7 @@
  #endif  // BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS) &&
 --- a/media/ffmpeg/ffmpeg_common.cc
 +++ b/media/ffmpeg/ffmpeg_common.cc
-@@ -67,7 +67,7 @@
+@@ -65,7 +65,7 @@
  const char* GetAllowedVideoDecoders() {
    // This should match the configured lists in //third_party/ffmpeg.
  #if BUILDFLAG(USE_PROPRIETARY_CODECS) && BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS)
