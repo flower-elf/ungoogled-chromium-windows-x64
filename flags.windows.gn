@@ -29,3 +29,4 @@ use_siso = true
 use_remoteexec = false
 win_enable_cfg_guards = true
 disable_fieldtrial_testing_config = true
+exclude_unwind_tables = true
