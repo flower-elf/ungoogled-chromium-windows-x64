@@ -18,7 +18,7 @@
      # TODO(siggi): Is this of any use anymore?
 --- a/third_party/tflite/BUILD.gn
 +++ b/third_party/tflite/BUILD.gn
-@@ -98,6 +98,15 @@
+@@ -105,6 +105,15 @@
      "NEON2SSE_DISABLE_PERFORMANCE_WARNING",
      "TFL_STATIC_LIBRARY_BUILD",
    ]
@@ -36,7 +36,7 @@
    }
 --- a/build/config/compiler/BUILD.gn
 +++ b/build/config/compiler/BUILD.gn
-@@ -605,7 +605,7 @@
+@@ -628,7 +628,7 @@
 -    if (!use_sized_deallocation) {
 +    # if (!use_sized_deallocation) {
        if (is_win) {
@@ -48,7 +48,7 @@
        }
 -    }
 +    # }
-@@ -663,23 +663,23 @@
+@@ -684,23 +684,23 @@
      if (default_toolchain != "//build/toolchain/cros:target" &&
          !llvm_android_mainline) {
        cflags += [
@@ -78,7 +78,7 @@
      }
  
      # Enable ELF CREL (see crbug.com/357878242) for all platforms that use ELF
-@@ -847,8 +847,8 @@
+@@ -867,8 +867,8 @@
 -  import_instr_limit = 30
 +  import_instr_limit = 100
 
@@ -193,7 +193,7 @@
  }
  
  bool IsDecoderVp9ProfileSupported(const VideoType& type) {
-@@ -585,7 +572,7 @@
+@@ -579,7 +566,7 @@
  
  bool IsDecoderBuiltInVideoCodec(VideoCodec codec) {
  #if BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS) && BUILDFLAG(USE_PROPRIETARY_CODECS)
@@ -204,7 +204,7 @@
  #endif  // BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS) &&
 --- a/media/ffmpeg/ffmpeg_common.cc
 +++ b/media/ffmpeg/ffmpeg_common.cc
-@@ -63,7 +63,7 @@
+@@ -64,7 +64,7 @@
  const char* GetAllowedVideoDecoders() {
    // This should match the configured lists in //third_party/ffmpeg.
  #if BUILDFLAG(USE_PROPRIETARY_CODECS) && BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS)
@@ -215,7 +215,7 @@
  #endif
 --- a/media/filters/ffmpeg_video_decoder.cc
 +++ b/media/filters/ffmpeg_video_decoder.cc
-@@ -73,7 +82,6 @@
+@@ -74,7 +83,6 @@
      case VideoCodec::kUnknown:
      case VideoCodec::kVC1:
      case VideoCodec::kMPEG2:
@@ -245,7 +245,7 @@
  FFmpegVideoDecoder::FFmpegVideoDecoder(MediaLog* media_log)
 --- a/media/webrtc/webrtc_features.cc
 +++ b/media/webrtc/webrtc_features.cc
-@@ -66,12 +66,12 @@ BASE_FEATURE(WebRtcAllowH265Receive, base::FEATURE_ENABLED_BY_DEFAULT);
+@@ -58,12 +58,12 @@ BASE_FEATURE(WebRtcAllowH265Receive, base::FEATURE_ENABLED_BY_DEFAULT);
  
  // When enabled, allows H.265 L1T2 to be used for sending WebRTC streams, if the
  // accelerator reports support of encoding in L1T2.
