@@ -18,7 +18,7 @@
      # TODO(siggi): Is this of any use anymore?
 --- a/third_party/tflite/BUILD.gn
 +++ b/third_party/tflite/BUILD.gn
-@@ -105,6 +105,15 @@
+@@ -113,6 +113,15 @@
      "NEON2SSE_DISABLE_PERFORMANCE_WARNING",
      "TFL_STATIC_LIBRARY_BUILD",
    ]
@@ -36,7 +36,25 @@
    }
 --- a/build/config/compiler/BUILD.gn
 +++ b/build/config/compiler/BUILD.gn
-@@ -628,7 +628,7 @@
+@@ -567,10 +567,10 @@ config("compiler") {
+   # Linux/Android/Fuchsia common flags setup.
+   # ---------------------------------
+   if (is_linux || is_chromeos || is_android || is_fuchsia) {
+-    asmflags += [ "-fPIC" ]
+-    cflags += [ "-fPIC" ]
+-    ldflags += [ "-fPIC" ]
+-    rustflags += [ "-Crelocation-model=pic" ]
++    asmflags += [ "-fPIC", "-w", ]
++    cflags += [ "-fPIC", "-w", ]
++    ldflags += [ "-fPIC", "-w", ]
++    rustflags += [ "-Crelocation-model=pic", "-Awarnings", ]
+ 
+     if (!is_clang) {
+       # Use pipes for communicating between sub-processes. Faster.
+@@ -646,13 +646,13 @@ config("compiler") {
+     # (https://crbug.com/829795).
+     cflags += [ "-fmerge-all-constants" ]
+ 
 -    if (!use_sized_deallocation) {
 +    # if (!use_sized_deallocation) {
        if (is_win) {
@@ -48,9 +66,12 @@
        }
 -    }
 +    # }
-@@ -684,23 +684,23 @@
-     if (default_toolchain != "//build/toolchain/cros:target" &&
-         !llvm_android_mainline) {
+ 
+     if (diagnostics_print_source_range_info && !is_win) {
+       cflags += [ "-fdiagnostics-print-source-range-info" ]
+@@ -705,14 +705,14 @@ config("compiler") {
+     # other problems.
+     if (default_toolchain != "//build/toolchain/cros:target") {
        cflags += [
 -        "-mllvm",
 -        "-split-threshold-for-reg-with-hint=0",
@@ -67,20 +88,18 @@
          }
        }
      }
+
+@@ -833,6 +833,7 @@ config("compiler") {
+     cflags += [
+       "-flto=thin",
+       "-fsplit-lto-unit",
++      "-mllvm", "-indexed-codegen-data-read-function-map-names=false",
+     ]
  
-     # TODO(crbug.com/40192287): Investigate why/if this should be needed.
-     if (is_win) {
--      cflags += [ "/clang:-ffp-contract=off" ]
-+      cflags += [ "/clang:-ffp-contract=fast" ]
-     } else {
--      cflags += [ "-ffp-contract=off" ]
-+      cflags += [ "-ffp-contract=fast" ]
-     }
- 
-     # Enable ELF CREL (see crbug.com/357878242) for all platforms that use ELF
+     if (thin_lto_enable_cache) {
 @@ -867,8 +867,8 @@
 -  import_instr_limit = 30
-+  import_instr_limit = 100
++  import_instr_limit = 200
 
    if (is_win) {
      ldflags += [
@@ -89,72 +108,182 @@
        "-mllvm:-disable-auto-upgrade-debug-info",
      ]
    } else {
-@@ -1075,6 +1075,10 @@ config("compiler") {
+@@ -877,9 +878,11 @@ config("compiler") {
+         "/opt:lldltojobs=all",
+         "-mllvm:-import-instr-limit=$import_instr_limit",
+         "-mllvm:-disable-auto-upgrade-debug-info",
++        "-mllvm:-indexed-codegen-data-read-function-map-names=false",
+       ]
+     } else {
+       ldflags += [ "-flto=thin" ]
++      ldflags += [ "-Wl,-mllvm,-indexed-codegen-data-read-function-map-names=false" ]
+ 
+       # Enabling ThinLTO on Chrome OS too, in an effort to reduce the memory
+       # usage in crbug.com/1038040. Note this will increase build time in
+@@ -1146,6 +1149,10 @@ config("compiler") {
  
      # We use clang-rt sanitizer runtimes.
      "-Zexternal-clangrt",
 +
-+    "-Ctarget-cpu=x86-64-v2",
-+    "-Ctarget-feature=+avx",
-+    "-Cllvm-args=-fp-contract=off",
++     "-Ctarget-cpu=x86-64-v2",
++     "-Ctarget-feature=+avx",
++     "-Cllvm-args=-fp-contract=off",
    ]
  
    if (!is_win || force_rustc_color_output) {
-@@ -1191,7 +1191,7 @@
+@@ -1214,7 +1221,7 @@ config("disallow_unstable_features") {
+ # building with ThinLTO, no optimization is performed in the link step.
+ config("thinlto_optimize_default") {
+   if (!is_debug && use_thin_lto && is_a_target_toolchain) {
+-    lto_opt_level = 0
++    lto_opt_level = 3
+ 
+     if (is_win) {
+       ldflags = [ "/opt:lldlto=" + lto_opt_level ]
+@@ -1245,9 +1252,9 @@ config("thinlto_optimize_default") {
+ config("thinlto_optimize_max") {
    if (!is_debug && use_thin_lto && is_a_target_toolchain) {
      if (thin_lto_enable_optimizations) {
 -      lto_opt_level = 2
 +      lto_opt_level = 3
      } else {
-       lto_opt_level = 0
+-      lto_opt_level = 0
++      lto_opt_level = 3
      }
-@@ -2672,10 +2672,7 @@
-     # clang-cl's /O2 corresponds to clang's -O3, and really want -O2 for
+ 
+     if (is_win) {
+@@ -1294,7 +1301,7 @@ config("compiler_cpu_abi") {
+         cflags += [ "-m64" ]
+         ldflags += [ "-m64" ]
+       }
+-      cflags += [ "-msse3" ]
++      cflags += [ "-march=x86-64-v2", "-mavx", ]
+       if (target_os == "chromeos" && cros_target_cpu_arch != "" &&
+           current_cpu == target_cpu) {
+         cflags += [ "-march=$cros_target_cpu_arch" ]
+@@ -2667,6 +2674,15 @@ if (is_win) {
+   common_optimize_on_cflags = [
+     "/Oy-",  # Disable omitting frame pointers, must be after /O2.
+     "/Zc:inline",  # Remove unreferenced COMDAT (faster links).
++    "-mllvm", "-adce-remove-loops",
++    "-mllvm", "-enable-gvn-hoist",
++    "-mllvm", "-enable-local-reassign",
++    "-mllvm", "-enable-nontrivial-unswitch",
++    "-mllvm", "-enable-loopinterchange",
++    "-mllvm", "-enable-loop-distribute",
++    "-mllvm", "-enable-unroll-and-jam",
++    "-mllvm", "-enable-loop-flatten",
++    "-mllvm", "-enable-loop-versioning-licm",
+   ]
+   if (!is_asan) {
+     common_optimize_on_cflags += [
+@@ -2680,6 +2696,19 @@ if (is_win) {
+   }
+   common_optimize_on_ldflags = []
+ 
++  common_optimize_on_ldflags += [
++   "-mllvm:-adce-remove-loops",
++   "-mllvm:-enable-gvn-hoist",
++   "-mllvm:-enable-local-reassign",
++   "-mllvm:-enable-nontrivial-unswitch",
++   "-mllvm:-enable-loopinterchange",
++   "-mllvm:-enable-loop-distribute",
++   "-mllvm:-enable-unroll-and-jam",
++   "-mllvm:-enable-loop-flatten",
++   "-mllvm:-enable-loop-versioning-licm",
++   # "-mllvm:-pass-remarks=vector",
++  ]
++
+   # /OPT:ICF is not desirable in Debug builds, since code-folding can result in
+   # misleading symbols in stack traces.
+   if (!is_debug && !is_component_build) {
+@@ -2693,6 +2722,31 @@ if (is_win) {
+   common_optimize_on_cflags = []
+   common_optimize_on_ldflags = []
+ 
++  common_optimize_on_cflags += [
++   "-mllvm", "-adce-remove-loops",
++   "-mllvm", "-enable-gvn-hoist",
++   "-mllvm", "-enable-local-reassign",
++   "-mllvm", "-enable-nontrivial-unswitch",
++   "-mllvm", "-enable-loopinterchange",
++   "-mllvm", "-enable-loop-distribute",
++   "-mllvm", "-enable-unroll-and-jam",
++   "-mllvm", "-enable-loop-flatten",
++   "-mllvm", "-enable-loop-versioning-licm",
++  ]
++
++  common_optimize_on_ldflags += [
++   "-Wl,-mllvm,-adce-remove-loops",
++   "-Wl,-mllvm,-enable-gvn-hoist",
++   "-Wl,-mllvm,-enable-local-reassign",
++   "-Wl,-mllvm,-enable-nontrivial-unswitch",
++   "-Wl,-mllvm,-enable-loopinterchange",
++   "-Wl,-mllvm,-enable-loop-distribute",
++   "-Wl,-mllvm,-enable-unroll-and-jam",
++   "-Wl,-mllvm,-enable-loop-flatten",
++   "-Wl,-mllvm,-enable-loop-versioning-licm",
++   # "-Wl,-mllvm,-pass-remarks=vector",
++  ]
++
+   if (is_android) {
+     # TODO(jdduke) Re-enable on mips after resolving linking
+     # issues with libc++ (crbug.com/456380).
+@@ -2797,7 +2851,7 @@ config("optimize") {
      # consistency with the other platforms.
      cflags = [
--      "/O2",
--      "/clang:-O2",
--    ] + common_optimize_on_cflags
-+      "-Xclang", "-O3",
-+    ] + common_optimize_on_cflags
+                "/O2",
+-               "/clang:-O2",
++               "/clang:-O3",
+              ] + common_optimize_on_cflags
  
      # The `-O3` for clang turns on extra optimizations compared to the standard
-     # `-O2`. But for rust, `-Copt-level=3` is the default and is thus reliable
-@@ -2695,7 +2692,7 @@
+@@ -2829,7 +2883,7 @@ config("optimize") {
      # vectorization while otherwise optimizing for size.
      rustflags = [ "-Copt-level=s" ]
    } else {
 -    cflags = [ "-O2" ] + common_optimize_on_cflags
-+    cflags = [ "-O3" ] + common_optimize_on_cflags
++    cflags = [ "-Xclang", "-O3" ] + common_optimize_on_cflags
+ 
      # The `-O3` for clang turns on extra optimizations compared to the standard
      # `-O2`. But for rust, `-Copt-level=3` is the default and is thus reliable
-     # to use.
-@@ -2756,11 +2753,9 @@
-   if (is_win) {
+@@ -2881,10 +2935,13 @@ config("optimize_max") {
      # Favor speed over size, /O2 must be before the common flags.
      # /O2 implies /Ot, /Oi, and /GF.
--    cflags = [ "/O2" ] + common_optimize_on_cflags
-+    cflags = [ "-Xclang", "-O3" ] + common_optimize_on_cflags
+     cflags = [ "/O2" ] + common_optimize_on_cflags
++    if (is_clang) {
++      cflags += [ "-Xclang", "-O3" ]
++    }
    } else if (optimize_for_fuzzing) {
      cflags = [ "-O1" ] + common_optimize_on_cflags
    } else {
 -    cflags = [ "-O2" ] + common_optimize_on_cflags
-+    cflags = [ "-O3" ] + common_optimize_on_cflags
++    cflags = [ "-Xclang", "-O3" ] + common_optimize_on_cflags
    }
    rustflags = [ "-Copt-level=3" ]
  }
-@@ -2776,10 +2771,7 @@
-   if (is_win) {
-     # Favor speed over size, /O2 must be before the common flags.
-     # /O2 implies /Ot, /Oi, and /GF.
--    cflags = [ "/O2" ] + common_optimize_on_cflags
--    if (is_clang) {
--      cflags += [ "/clang:-O3" ]
--    }
-+    cflags = [ "-Xclang", "-O3" ] + common_optimize_on_cflags
-   } else if (optimize_for_fuzzing) {
-     cflags = [ "-O1" ] + common_optimize_on_cflags
-   } else {
+diff --git a/build/config/win/BUILD.gn b/build/config/win/BUILD.gn
+index 4e4ab177d4f21..8e8c087591874 100644
+--- a/build/config/win/BUILD.gn
++++ b/build/config/win/BUILD.gn
+@@ -120,7 +120,7 @@ config("compiler") {
+     # microarchitecture. MSVC only supports a subset of architectures, and the
+     # next step after SSE2 will be AVX.
+     if (current_cpu == "x86" || current_cpu == "x64") {
+-      cflags += [ "-msse3" ]
++      cflags += [ "-mavx", "/clang:-w", ]
+     }
+ 
+     # Enable ANSI escape codes if something emulating them is around (cmd.exe
+@@ -190,7 +190,7 @@ config("compiler") {
+     if (use_lld) {
+       # String tail merging leads to smaller binaries, but they don't compress
+       # as well, leading to increased mini_installer size (crbug.com/838449).
+-      ldflags += [ "/OPT:NOLLDTAILMERGE" ]
++      ldflags += [ "/OPT:LLDTAILMERGE" ]
+     }
+ 
+     # TODO(siggi): Is this of any use anymore?
 @@ -3161,3 +3161,3 @@
  config("no_symbols") {
    if (is_win) {
@@ -249,14 +378,14 @@
  
  // When enabled, allows H.265 L1T2 to be used for sending WebRTC streams, if the
  // accelerator reports support of encoding in L1T2.
--BASE_FEATURE(WebRtcH265L1T2, base::FEATURE_DISABLED_BY_DEFAULT);
-+BASE_FEATURE(WebRtcH265L1T2, base::FEATURE_ENABLED_BY_DEFAULT);
+-BASE_FEATURE(kWebRtcH265L1T2, base::FEATURE_DISABLED_BY_DEFAULT);
++BASE_FEATURE(kWebRtcH265L1T2, base::FEATURE_ENABLED_BY_DEFAULT);
  
  // When enabled, allows H.265 L1T3 to be used for sending WebRTC streams, if the
  // accelerator reports support of encoding in L1T3. If this is enabled, L1T2 is
  // also implied to be enabled.
--BASE_FEATURE(WebRtcH265L1T3, base::FEATURE_DISABLED_BY_DEFAULT);
-+BASE_FEATURE(WebRtcH265L1T3, base::FEATURE_ENABLED_BY_DEFAULT);
+-BASE_FEATURE(kWebRtcH265L1T3, base::FEATURE_DISABLED_BY_DEFAULT);
++BASE_FEATURE(kWebRtcH265L1T3, base::FEATURE_ENABLED_BY_DEFAULT);
  
  // When enabled, allows AV1 HW encoding to be used for WebRTC streams, if the
  // platform accelerator supports encoding of AV1.
