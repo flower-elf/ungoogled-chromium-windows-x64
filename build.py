@@ -28,6 +28,126 @@ sys.path.pop(0)
 
 _ROOT_DIR = Path(__file__).resolve().parent
 _PATCH_BIN_RELPATH = Path('third_party/git/usr/bin/patch.exe')
+_PATCH_FAILED_FILES_DIR = _ROOT_DIR / 'build' / 'patch_failed_files'
+
+
+def _extract_files_from_patch(patch_path):
+    """
+    Extracts the list of files that a patch modifies.
+    Returns a list of relative file paths from the patch.
+    """
+    files = []
+    try:
+        with open(patch_path, 'r', encoding='utf-8', errors='replace') as f:
+            for line in f:
+                # Match lines like "--- a/path/to/file" or "+++ b/path/to/file"
+                if line.startswith('--- a/') or line.startswith('+++ b/'):
+                    # Extract path after "--- a/" or "+++ b/"
+                    path = line[6:].strip()
+                    # Remove any trailing tab and timestamp (e.g., "\t2021-01-01 00:00:00")
+                    if '\t' in path:
+                        path = path.split('\t')[0]
+                    if path and path not in files and path != '/dev/null':
+                        files.append(path)
+                # Also match "--- path/to/file" or "+++ path/to/file" (without a/ or b/ prefix)
+                elif line.startswith('--- ') or line.startswith('+++ '):
+                    # Extract path after "--- " or "+++ "
+                    path = line[4:].strip()
+                    # Remove any trailing tab and timestamp
+                    if '\t' in path:
+                        path = path.split('\t')[0]
+                    # Skip /dev/null and already extracted files
+                    if path and path not in files and path != '/dev/null':
+                        files.append(path)
+                # Also match "diff --git a/path b/path" format
+                elif line.startswith('diff --git '):
+                    parts = line.strip().split(' ')
+                    if len(parts) >= 4:
+                        # Extract path from "a/path"
+                        path = parts[2]
+                        if path.startswith('a/'):
+                            path = path[2:]
+                            if path and path not in files:
+                                files.append(path)
+    except Exception as e:
+        get_logger().warning('Failed to parse patch file %s: %s', patch_path, e)
+    return files
+
+
+def _copy_failed_files(source_tree, patch_path, failed_files_dir):
+    """
+    Copies the files that would be affected by a patch to the failed files directory.
+    This captures the state of the files after successful patches but before the failed patch.
+    """
+    files = _extract_files_from_patch(patch_path)
+    if not files:
+        get_logger().warning('No files extracted from patch: %s', patch_path)
+        return []
+    
+    copied_files = []
+    failed_files_dir.mkdir(parents=True, exist_ok=True)
+    
+    for file_path in files:
+        source_file = source_tree / file_path
+        if source_file.exists():
+            # Create subdirectory structure in failed_files_dir
+            dest_file = failed_files_dir / file_path
+            dest_file.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                shutil.copy2(source_file, dest_file)
+                copied_files.append(str(dest_file))
+                get_logger().info('Copied failed file: %s', file_path)
+            except Exception as e:
+                get_logger().warning('Failed to copy file %s: %s', file_path, e)
+        else:
+            get_logger().info('Source file does not exist (new file in patch): %s', file_path)
+    
+    # Also save the patch file itself for reference
+    patch_dest = failed_files_dir / 'failed_patch.patch'
+    try:
+        shutil.copy2(patch_path, patch_dest)
+        copied_files.append(str(patch_dest))
+        get_logger().info('Copied failed patch file: %s', patch_path.name)
+    except Exception as e:
+        get_logger().warning('Failed to copy patch file: %s', e)
+    
+    return copied_files
+
+
+def apply_patches_with_capture(patch_path_iter, tree_path, patch_bin_path=None, failed_files_dir=None):
+    """
+    Applies patches and captures affected files when a patch fails.
+    
+    This is similar to patches.apply_patches() but captures the state of files
+    when a patch fails for debugging purposes.
+    """
+    patch_paths = list(patch_path_iter)
+    patch_bin_path = patches.find_and_check_patch(patch_bin_path=patch_bin_path)
+    
+    if failed_files_dir is None:
+        failed_files_dir = _PATCH_FAILED_FILES_DIR
+    
+    logger = get_logger()
+    for patch_path, patch_num in zip(patch_paths, range(1, len(patch_paths) + 1)):
+        cmd = [
+            str(patch_bin_path), '-p1', '--ignore-whitespace', '-i',
+            str(patch_path), '-d',
+            str(tree_path), '--no-backup-if-mismatch', '--forward'
+        ]
+        logger.info('* Applying %s (%s/%s)', patch_path.name, patch_num, len(patch_paths))
+        logger.debug(' '.join(cmd))
+        
+        result = subprocess.run(cmd, check=False)
+        
+        if result.returncode != 0:
+            logger.error('Patch failed: %s', patch_path.name)
+            logger.info('Capturing affected files for debugging...')
+            
+            # Copy the affected files to the failed files directory
+            _copy_failed_files(tree_path, patch_path, failed_files_dir)
+            
+            # Re-raise the error to maintain the original behavior
+            raise subprocess.CalledProcessError(result.returncode, cmd)
 
 
 def _get_vcvars_path(name='64'):
@@ -215,13 +335,13 @@ def main():
 
         # Apply patches
         # First, ungoogled-chromium-patches
-        patches.apply_patches(
+        apply_patches_with_capture(
             patches.generate_patches_from_series(_ROOT_DIR / 'ungoogled-chromium' / 'patches', resolve=True),
             source_tree,
             patch_bin_path=(source_tree / _PATCH_BIN_RELPATH)
         )
         # Then Windows-specific patches
-        patches.apply_patches(
+        apply_patches_with_capture(
             patches.generate_patches_from_series(_ROOT_DIR / 'patches', resolve=True),
             source_tree,
             patch_bin_path=(source_tree / _PATCH_BIN_RELPATH)
