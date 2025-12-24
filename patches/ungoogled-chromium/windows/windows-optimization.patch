@@ -303,7 +303,7 @@ index 4e4ab17..8e8c087 100644
      case VideoCodec::kVP9:
      case VideoCodec::kAV1:
      case VideoCodec::kDolbyVision:
-@@ -83,6 +83,7 @@
+@@ -82,6 +83,7 @@
        NOTREACHED();
  
      case VideoCodec::kH264:
