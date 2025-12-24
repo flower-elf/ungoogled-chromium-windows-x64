@@ -1,5 +1,3 @@
-diff --git a/build/config/compiler/BUILD.gn b/build/config/compiler/BUILD.gn
-index 4e4ab17..8e8c087 100644
 --- a/build/config/compiler/BUILD.gn
 +++ b/build/config/compiler/BUILD.gn
 @@ -558,10 +558,10 @@ config("compiler") {
@@ -44,7 +42,7 @@ index 4e4ab17..8e8c087 100644
      ]
  
      if (thin_lto_enable_cache) {
-@@ -878,19 +877,21 @@ config("compiler") {
+@@ -878,19 +878,21 @@ config("compiler") {
 -  import_instr_limit = 30
 +  import_instr_limit = 200
  
@@ -182,8 +180,11 @@ index 4e4ab17..8e8c087 100644
    }
    rustflags = [ "-Copt-level=3" ]
  }
-diff --git a/build/config/win/BUILD.gn b/build/config/win/BUILD.gn
-index 4e4ab17..8e8c087 100644
+ @@ -3161,3 +3161,3 @@
+ config("no_symbols") {
+   if (is_win) {
+-    ldflags = [ "/DEBUG" ]
++    ldflags = [ "/DEBUG:NONE" ]
 --- a/build/config/win/BUILD.gn
 +++ b/build/config/win/BUILD.gn
 @@ -124,5 +124,5 @@ config("compiler") {
@@ -202,9 +203,6 @@ index 4e4ab17..8e8c087 100644
      }
  
      # TODO(siggi): Is this of any use anymore?
-
-diff --git a/third_party/tflite/BUILD.gn b/third_party/tflite/BUILD.gn
-index 4e4ab17..8e8c087 100644
 --- a/third_party/tflite/BUILD.gn
 +++ b/third_party/tflite/BUILD.gn
 @@ -113,6 +113,15 @@
@@ -223,8 +221,6 @@ index 4e4ab17..8e8c087 100644
    if (!is_debug) {
      defines += [ "TF_LITE_STRIP_ERROR_STRINGS" ]
    }
-diff --git a/chrome/installer/mini_installer/mini_installer_exe_main.cc b/chrome/installer/mini_installer/mini_installer_exe_main.cc
-index aff0370044046..811529a08db83 100644
 --- a/chrome/installer/mini_installer/mini_installer_exe_main.cc
 +++ b/chrome/installer/mini_installer/mini_installer_exe_main.cc
 @@ -59,7 +59,7 @@ void* memset(void* dest, int c, size_t count) {
@@ -243,8 +239,6 @@ index aff0370044046..811529a08db83 100644
 -#endif
 +// #endif
  }  // extern "C"
-diff --git a/media/base/supported_types.cc b/media/base/supported_types.cc
-index 4e4ab17..8e8c087 100644
 --- a/media/base/supported_types.cc
 +++ b/media/base/supported_types.cc
 @@ -229,25 +229,12 @@
@@ -286,8 +280,6 @@ index 4e4ab17..8e8c087 100644
      return true;
    }
  #endif  // BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS) &&
-diff --git a/media/ffmpeg/ffmpeg_common.cc b/media/ffmpeg/ffmpeg_common.cc
-index 4e4ab17..8e8c087 100644
 --- a/media/ffmpeg/ffmpeg_common.cc
 +++ b/media/ffmpeg/ffmpeg_common.cc
 @@ -64,7 +64,7 @@
@@ -331,8 +323,6 @@ index 4e4ab17..8e8c087 100644
  }
  
  FFmpegVideoDecoder::FFmpegVideoDecoder(MediaLog* media_log)
-diff --git a/media/webrtc/webrtc_features.cc b/media/webrtc/webrtc_features.cc
-index 4e4ab17..8e8c087 100644
 --- a/media/webrtc/webrtc_features.cc
 +++ b/media/webrtc/webrtc_features.cc
 @@ -59,12 +59,12 @@ BASE_FEATURE(WebRtcAllowH265Receive, base::FEATURE_ENABLED_BY_DEFAULT);
