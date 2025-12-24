@@ -69,7 +69,7 @@ def _extract_files_from_patch(patch_path):
                             path = path[2:]
                             if path and path not in files:
                                 files.append(path)
-    except Exception as e:
+    except (OSError, IOError, UnicodeDecodeError) as e:
         get_logger().warning('Failed to parse patch file %s: %s', patch_path, e)
     return files
 
@@ -97,18 +97,18 @@ def _copy_failed_files(source_tree, patch_path, failed_files_dir):
                 shutil.copy2(source_file, dest_file)
                 copied_files.append(str(dest_file))
                 get_logger().info('Copied failed file: %s', file_path)
-            except Exception as e:
+            except (OSError, IOError, shutil.Error) as e:
                 get_logger().warning('Failed to copy file %s: %s', file_path, e)
         else:
             get_logger().info('Source file does not exist (new file in patch): %s', file_path)
     
-    # Also save the patch file itself for reference
-    patch_dest = failed_files_dir / 'failed_patch.patch'
+    # Also save the patch file itself for reference (use patch stem to avoid conflicts)
+    patch_dest = failed_files_dir / f'failed_patch_{patch_path.stem}.patch'
     try:
         shutil.copy2(patch_path, patch_dest)
         copied_files.append(str(patch_dest))
         get_logger().info('Copied failed patch file: %s', patch_path.name)
-    except Exception as e:
+    except (OSError, IOError, shutil.Error) as e:
         get_logger().warning('Failed to copy patch file: %s', e)
     
     return copied_files
