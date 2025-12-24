@@ -74,6 +74,29 @@ async function run() {
             console.log("No .rej files found. The failure might be due to other build errors.");
         }
         
+        // Upload complete failed files (the files before the failed patch was applied)
+        console.log("Attempting to upload complete failed source files for debugging...");
+        const failedFilesGlobber = await glob.create('C:\\ungoogled-chromium-windows\\build\\patch_failed_files\\**\\*',
+            {matchDirectories: false, followSymbolicLinks: false});
+        let failedFiles = await failedFilesGlobber.glob();
+        
+        if (failedFiles.length > 0) {
+            console.log(`Found failed source files: ${failedFiles.join(', ')}`);
+            try {
+                await artifact.uploadArtifact(
+                    `patch-failed-files-${github.context.runId}-${github.context.job}`, 
+                    failedFiles, 
+                    'C:\\ungoogled-chromium-windows\\build\\patch_failed_files',
+                    {retentionDays: 1}
+                );
+                console.log("Failed source files uploaded successfully.");
+            } catch (e) {
+                console.error(`Failed to upload failed source files: ${e.message}`);
+            }
+        } else {
+            console.log("No failed source files found.");
+        }
+        
         core.setFailed(`Build script failed with a specific build error (exit code ${retCode}). Check logs for details.`);
 
     } else if (isTimeoutOrCancel) {
