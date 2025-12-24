@@ -318,7 +318,7 @@ def main():
 
     # Run ninja
     if args.ci:
-        _run_build_process_timeout(*ninja_commandline, timeout=3.5*60*60)
+        _run_build_process_timeout(*ninja_commandline, timeout=4.7*60*60)
         # package
         os.chdir(_ROOT_DIR)
         subprocess.run([sys.executable, 'package.py'])
