@@ -1,5 +1,7 @@
 # ungoogled-chromium-windows
 
+[![CI Status](https://github.com/flower-elf/ungoogled-chromium-windows-x64/actions/workflows/main.yml/badge.svg)](https://github.com/flower-elf/ungoogled-chromium-windows-x64/actions/workflows/main.yml)
+
 Windows packaging for [ungoogled-chromium](//github.com/Eloston/ungoogled-chromium).
 
 ## Downloads
