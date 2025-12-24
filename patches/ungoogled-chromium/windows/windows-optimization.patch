@@ -34,6 +34,29 @@
  
      if (diagnostics_print_source_range_info && !is_win) {
        cflags += [ "-fdiagnostics-print-source-range-info" ]
+@@ -644,11 +644,12 @@ config("compiler") {
+     # [1]: https://pinpoint-dot-chromeperf.appspot.com/job/11984a18be0000
+     # [2]: https://ci.chromium.org/ui/p/chromium/builders/try/android-binary-size/1848442
+-    import_instr_limit = 30
++    import_instr_limit = 200
+ 
+     if (is_win) {
+       ldflags += [
+         "/opt:lldltojobs=all",
+         "-mllvm:-import-instr-limit=$import_instr_limit",
+         "-mllvm:-disable-auto-upgrade-debug-info",
++        "-mllvm:-indexed-codegen-data-read-function-map-names=false",
+       ]
+     } else {
+       ldflags += [ "-flto=thin" ]
+@@ -685,4 +686,5 @@ config("compiler") {
+       # We only use one version of LLVM within a build so there's no need to
+       # upgrade debug info, which can be expensive since it runs the verifier.
+       ldflags += [ "-Wl,-mllvm,-disable-auto-upgrade-debug-info" ]
++      ldflags += [ "-Wl,-mllvm,-indexed-codegen-data-read-function-map-names=false" ]
+     }
+ 
+     if (!optimize_for_size) {
 @@ -839,6 +837,7 @@ config("compiler") {
      cflags += [
        "-flto=thin",
@@ -42,35 +65,6 @@
      ]
  
      if (thin_lto_enable_cache) {
-@@ -878,19 +878,21 @@ config("compiler") {
--  import_instr_limit = 30
-+  import_instr_limit = 200
- 
-   if (is_win) {
-     ldflags += [
-       "/opt:lldltojobs=all",
-       "-mllvm:-import-instr-limit=$import_instr_limit",
-       "-mllvm:-disable-auto-upgrade-debug-info",
-+      "-mllvm:-indexed-codegen-data-read-function-map-names=false",
-     ]
-   } else {
-     ldflags += [
-       "-flto=thin",
-       "-fsplit-lto-unit",
-     ]
-     if (use_lld) {
-       ldflags += [
-         "/opt:lldltojobs=all",
-         "-mllvm:-import-instr-limit=$import_instr_limit",
-         "-mllvm:-disable-auto-upgrade-debug-info",
-+        "-Wl,-mllvm,-indexed-codegen-data-read-function-map-names=false",
-       ]
-     } else {
-       ldflags += [ "-flto=thin" ]
-+      ldflags += [ "-Wl,-mllvm,-indexed-codegen-data-read-function-map-names=false" ]
- 
-       # Enabling ThinLTO on Chrome OS too, in an effort to reduce the memory
-       # usage in crbug.com/1038040. Note this will increase build time in
 @@ -1146,6 +1147,9 @@ config("compiler") {
  
      # We use clang-rt sanitizer runtimes.
