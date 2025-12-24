@@ -2,7 +2,7 @@ diff --git a/build/config/compiler/BUILD.gn b/build/config/compiler/BUILD.gn
 index 4e4ab17..8e8c087 100644
 --- a/build/config/compiler/BUILD.gn
 +++ b/build/config/compiler/BUILD.gn
-@@ -567,10 +567,10 @@ config("compiler") {
+@@ -558,10 +558,10 @@ config("compiler") {
    # Linux/Android/Fuchsia common flags setup.
    # ---------------------------------
    if (is_linux || is_chromeos || is_android || is_fuchsia) {
@@ -17,7 +17,7 @@ index 4e4ab17..8e8c087 100644
  
      if (!is_clang) {
        # Use pipes for communicating between sub-processes. Faster.
-@@ -646,13 +646,11 @@ config("compiler") {
+@@ -637,13 +637,11 @@ config("compiler") {
      # (https://crbug.com/829795).
      cflags += [ "-fmerge-all-constants" ]
  
@@ -36,7 +36,7 @@ index 4e4ab17..8e8c087 100644
  
      if (diagnostics_print_source_range_info && !is_win) {
        cflags += [ "-fdiagnostics-print-source-range-info" ]
-@@ -833,6 +831,7 @@ config("compiler") {
+@@ -839,6 +837,7 @@ config("compiler") {
      cflags += [
        "-flto=thin",
        "-fsplit-lto-unit",
@@ -44,7 +44,7 @@ index 4e4ab17..8e8c087 100644
      ]
  
      if (thin_lto_enable_cache) {
-@@ -867,19 +866,21 @@ config("compiler") {
+@@ -878,19 +877,21 @@ config("compiler") {
 -  import_instr_limit = 30
 +  import_instr_limit = 200
  
@@ -202,13 +202,7 @@ index 4e4ab17..8e8c087 100644
      }
  
      # TODO(siggi): Is this of any use anymore?
-@@ -3161,3 +3161,3 @@ config("no_symbols") {
- config("no_symbols") {
-   if (is_win) {
--    ldflags = [ "/DEBUG" ]
-+    ldflags = [ "/DEBUG:NONE" ]
-   }
- }
+
 diff --git a/third_party/tflite/BUILD.gn b/third_party/tflite/BUILD.gn
 index 4e4ab17..8e8c087 100644
 --- a/third_party/tflite/BUILD.gn
@@ -229,11 +223,31 @@ index 4e4ab17..8e8c087 100644
    if (!is_debug) {
      defines += [ "TF_LITE_STRIP_ERROR_STRINGS" ]
    }
+diff --git a/chrome/installer/mini_installer/mini_installer_exe_main.cc b/chrome/installer/mini_installer/mini_installer_exe_main.cc
+index aff0370044046..811529a08db83 100644
+--- a/chrome/installer/mini_installer/mini_installer_exe_main.cc
++++ b/chrome/installer/mini_installer/mini_installer_exe_main.cc
+@@ -59,7 +59,7 @@ void* memset(void* dest, int c, size_t count) {
+   return dest;
+ }
+ 
+-#if defined(_DEBUG) && defined(ARCH_CPU_ARM64)
++// #if defined(_DEBUG) && defined(ARCH_CPU_ARM64)
+ // The compiler generates calls to memcpy for ARM64 debug builds so we need to
+ // supply a memcpy implementation in that configuration.
+ // See comments above for why we do this incantation.
+@@ -71,5 +71,5 @@ void* memcpy(void* destination, const void* source, size_t count) {
+     *dst++ = *src++;
+   return destination;
+ }
+-#endif
++// #endif
+ }  // extern "C"
 diff --git a/media/base/supported_types.cc b/media/base/supported_types.cc
 index 4e4ab17..8e8c087 100644
 --- a/media/base/supported_types.cc
 +++ b/media/base/supported_types.cc
-@@ -228,25 +228,12 @@
+@@ -229,25 +229,12 @@
  #endif  // !BUILDFLAG(USE_PROPRIETARY_CODECS)
  
  bool IsDecoderHevcProfileSupported(const VideoType& type) {
@@ -289,7 +303,7 @@ diff --git a/media/filters/ffmpeg_video_decoder.cc b/media/filters/ffmpeg_video_
 index 4e4ab17..8e8c087 100644
 --- a/media/filters/ffmpeg_video_decoder.cc
 +++ b/media/filters/ffmpeg_video_decoder.cc
-@@ -74,7 +83,6 @@
+@@ -73,7 +82,6 @@
      case VideoCodec::kUnknown:
      case VideoCodec::kVC1:
      case VideoCodec::kMPEG2:
@@ -321,7 +335,7 @@ diff --git a/media/webrtc/webrtc_features.cc b/media/webrtc/webrtc_features.cc
 index 4e4ab17..8e8c087 100644
 --- a/media/webrtc/webrtc_features.cc
 +++ b/media/webrtc/webrtc_features.cc
-@@ -58,12 +58,12 @@ BASE_FEATURE(WebRtcAllowH265Receive, base::FEATURE_ENABLED_BY_DEFAULT);
+@@ -59,12 +59,12 @@ BASE_FEATURE(WebRtcAllowH265Receive, base::FEATURE_ENABLED_BY_DEFAULT);
  
  // When enabled, allows H.265 L1T2 to be used for sending WebRTC streams, if the
  // accelerator reports support of encoding in L1T2.
