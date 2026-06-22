@@ -5,15 +5,7 @@ on:
       python-version:
         type: string
         required: false
-        default: '3.12'
-      x86:
-        type: boolean
-        required: false
-        default: false
-      arm:
-        type: boolean
-        required: false
-        default: false
+        default: "3.12"
 
 jobs:
   build-1:
@@ -21,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
       - name: Prepare
         uses: ./.github/actions/prepare
         with:
@@ -32,8 +24,6 @@ jobs:
         with:
           finished: false
           from_artifact: false
-          x86: ${{ inputs.x86 }}
-          arm: ${{ inputs.arm }}
     outputs:
       finished: ${{ steps.stage.outputs.finished }}
   build-2:
@@ -42,7 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
       - name: Prepare
         uses: ./.github/actions/prepare
         with:
@@ -53,8 +43,6 @@ jobs:
         with:
           finished: ${{ join(needs.*.outputs.finished) }}
           from_artifact: true
-          x86: ${{ inputs.x86 }}
-          arm: ${{ inputs.arm }}
     outputs:
       finished: ${{ steps.stage.outputs.finished }}
   build-3:
@@ -63,7 +51,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
       - name: Prepare
         uses: ./.github/actions/prepare
         with:
@@ -74,8 +62,6 @@ jobs:
         with:
           finished: ${{ join(needs.*.outputs.finished) }}
           from_artifact: true
-          x86: ${{ inputs.x86 }}
-          arm: ${{ inputs.arm }}
     outputs:
       finished: ${{ steps.stage.outputs.finished }}
   build-4:
@@ -84,7 +70,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
       - name: Prepare
         uses: ./.github/actions/prepare
         with:
@@ -95,8 +81,6 @@ jobs:
         with:
           finished: ${{ join(needs.*.outputs.finished) }}
           from_artifact: true
-          x86: ${{ inputs.x86 }}
-          arm: ${{ inputs.arm }}
     outputs:
       finished: ${{ steps.stage.outputs.finished }}
   build-5:
@@ -105,7 +89,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
       - name: Prepare
         uses: ./.github/actions/prepare
         with:
@@ -116,8 +100,6 @@ jobs:
         with:
           finished: ${{ join(needs.*.outputs.finished) }}
           from_artifact: true
-          x86: ${{ inputs.x86 }}
-          arm: ${{ inputs.arm }}
     outputs:
       finished: ${{ steps.stage.outputs.finished }}
   build-6:
@@ -126,7 +108,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
       - name: Prepare
         uses: ./.github/actions/prepare
         with:
@@ -137,8 +119,6 @@ jobs:
         with:
           finished: ${{ join(needs.*.outputs.finished) }}
           from_artifact: true
-          x86: ${{ inputs.x86 }}
-          arm: ${{ inputs.arm }}
     outputs:
       finished: ${{ steps.stage.outputs.finished }}
   build-7:
@@ -147,7 +127,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
       - name: Prepare
         uses: ./.github/actions/prepare
         with:
@@ -158,8 +138,6 @@ jobs:
         with:
           finished: ${{ join(needs.*.outputs.finished) }}
           from_artifact: true
-          x86: ${{ inputs.x86 }}
-          arm: ${{ inputs.arm }}
     outputs:
       finished: ${{ steps.stage.outputs.finished }}
   build-8:
@@ -168,7 +146,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
       - name: Prepare
         uses: ./.github/actions/prepare
         with:
@@ -179,8 +157,6 @@ jobs:
         with:
           finished: ${{ join(needs.*.outputs.finished) }}
           from_artifact: true
-          x86: ${{ inputs.x86 }}
-          arm: ${{ inputs.arm }}
     outputs:
       finished: ${{ steps.stage.outputs.finished }}
   build-9:
@@ -189,7 +165,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
       - name: Prepare
         uses: ./.github/actions/prepare
         with:
@@ -200,8 +176,6 @@ jobs:
         with:
           finished: ${{ join(needs.*.outputs.finished) }}
           from_artifact: true
-          x86: ${{ inputs.x86 }}
-          arm: ${{ inputs.arm }}
     outputs:
       finished: ${{ steps.stage.outputs.finished }}
   build-10:
@@ -210,7 +184,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
       - name: Prepare
         uses: ./.github/actions/prepare
         with:
@@ -221,8 +195,6 @@ jobs:
         with:
           finished: ${{ join(needs.*.outputs.finished) }}
           from_artifact: true
-          x86: ${{ inputs.x86 }}
-          arm: ${{ inputs.arm }}
     outputs:
       finished: ${{ steps.stage.outputs.finished }}
   build-11:
@@ -231,7 +203,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
       - name: Prepare
         uses: ./.github/actions/prepare
         with:
@@ -242,8 +214,6 @@ jobs:
         with:
           finished: ${{ join(needs.*.outputs.finished) }}
           from_artifact: true
-          x86: ${{ inputs.x86 }}
-          arm: ${{ inputs.arm }}
     outputs:
       finished: ${{ steps.stage.outputs.finished }}
   build-12:
@@ -252,7 +222,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
       - name: Prepare
         uses: ./.github/actions/prepare
         with:
@@ -263,8 +233,6 @@ jobs:
         with:
           finished: ${{ join(needs.*.outputs.finished) }}
           from_artifact: true
-          x86: ${{ inputs.x86 }}
-          arm: ${{ inputs.arm }}
     outputs:
       finished: ${{ steps.stage.outputs.finished }}
   build-13:
@@ -273,7 +241,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
       - name: Prepare
         uses: ./.github/actions/prepare
         with:
@@ -284,8 +252,6 @@ jobs:
         with:
           finished: ${{ join(needs.*.outputs.finished) }}
           from_artifact: true
-          x86: ${{ inputs.x86 }}
-          arm: ${{ inputs.arm }}
     outputs:
       finished: ${{ steps.stage.outputs.finished }}
   build-14:
@@ -294,7 +260,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
       - name: Prepare
         uses: ./.github/actions/prepare
         with:
@@ -305,8 +271,6 @@ jobs:
         with:
           finished: ${{ join(needs.*.outputs.finished) }}
           from_artifact: true
-          x86: ${{ inputs.x86 }}
-          arm: ${{ inputs.arm }}
     outputs:
       finished: ${{ steps.stage.outputs.finished }}
   build-15:
@@ -315,7 +279,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
       - name: Prepare
         uses: ./.github/actions/prepare
         with:
@@ -326,8 +290,6 @@ jobs:
         with:
           finished: ${{ join(needs.*.outputs.finished) }}
           from_artifact: true
-          x86: ${{ inputs.x86 }}
-          arm: ${{ inputs.arm }}
     outputs:
       finished: ${{ steps.stage.outputs.finished }}
   build-16:
@@ -336,7 +298,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
       - name: Prepare
         uses: ./.github/actions/prepare
         with:
@@ -347,8 +309,6 @@ jobs:
         with:
           finished: ${{ join(needs.*.outputs.finished) }}
           from_artifact: true
-          x86: ${{ inputs.x86 }}
-          arm: ${{ inputs.arm }}
     outputs:
       finished: ${{ steps.stage.outputs.finished }}
   complete:
