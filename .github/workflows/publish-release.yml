@@ -6,6 +6,14 @@ on:
         description: "要发布的版本"
         required: true
         type: string
+  workflow_call:
+    inputs:
+      target_tag:
+        required: true
+        type: string
+      x64_run_id:
+        required: true
+        type: string
   workflow_run:
     workflows:
       - build-x64
@@ -22,7 +30,7 @@ concurrency:
 
 jobs:
   resolve-release-context:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') }}
     runs-on: ubuntu-latest
     outputs:
       ready: ${{ steps.context.outputs.ready }}
@@ -41,6 +49,7 @@ jobs:
 
       - name: Resolve target tag
         id: context
+        if: ${{ github.event_name != 'workflow_call' }}
         env:
           EVENT_NAME: ${{ github.event_name }}
           MANUAL_TAG_NAME: ${{ inputs.tag_name }}
@@ -102,9 +111,17 @@ jobs:
           echo "Resolved tag: $target_tag"
           echo "Resolved sha: $target_sha"
 
+      - name: Set context from caller (workflow_call)
+        id: context
+        if: ${{ github.event_name == 'workflow_call' }}
+        run: |
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+          echo "target_tag=${{ inputs.target_tag }}" >> "$GITHUB_OUTPUT"
+          echo "target_sha=workflow_call" >> "$GITHUB_OUTPUT"
+
       - name: Locate latest successful builds
         id: runs
-        if: ${{ steps.context.outputs.ready == 'true' }}
+        if: ${{ steps.context.outputs.ready == 'true' && github.event_name != 'workflow_call' }}
         uses: actions/github-script@v9
         env:
           TARGET_SHA: ${{ steps.context.outputs.target_sha }}
@@ -154,6 +171,13 @@ jobs:
             for (const [name, value] of Object.entries(outputs)) {
               core.setOutput(name, value);
             }
+
+      - name: Set run context from caller (workflow_call)
+        id: runs
+        if: ${{ github.event_name == 'workflow_call' }}
+        run: |
+          echo "publishable=true" >> "$GITHUB_OUTPUT"
+          echo "x64_run_id=${{ inputs.x64_run_id }}" >> "$GITHUB_OUTPUT"
 
   publish-release:
     needs: resolve-release-context

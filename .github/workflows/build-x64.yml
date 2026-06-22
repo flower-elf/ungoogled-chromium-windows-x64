@@ -1,17 +1,60 @@
 name: build-x64
 on:
   workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Version tag (e.g. 149.0.7827.155-1)'
+        required: true
+        type: string
+      publish:
+        description: 'Publish release after build'
+        required: false
+        type: boolean
+        default: true
   push:
     tags:
       - '*'
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: build-x64-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  create-tag:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Fetch tags
+        run: git fetch --force --tags origin
+
+      - name: Create tag
+        run: |
+          TAG="${{ inputs.tag_name }}"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "Tag $TAG already exists, skipping creation."
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+            echo "Created tag $TAG"
+          fi
+
   build:
+    needs: create-tag
+    if: ${{ always() && !failure() && !cancelled() }}
     uses: ./.github/workflows/reusable-build.yml
+
+  publish:
+    needs: build
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish && needs.build.result == 'success' }}
+    uses: ./.github/workflows/publish-release.yml
+    with:
+      target_tag: ${{ inputs.tag_name }}
+      x64_run_id: ${{ github.run_id }}
