@@ -3,17 +3,17 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Version tag (e.g. 149.0.7827.155-1)'
+        description: "Version tag (e.g. 149.0.7827.155-1)"
         required: true
         type: string
       publish:
-        description: 'Publish release after build'
+        description: "Publish release after build"
         required: false
         type: boolean
         default: true
   push:
     tags:
-      - '*'
+      - "*"
 
 permissions:
   contents: write

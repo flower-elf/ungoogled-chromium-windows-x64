@@ -49,10 +49,10 @@ jobs:
 
       - name: Resolve target tag
         id: context
-        if: ${{ github.event_name != 'workflow_call' }}
         env:
           EVENT_NAME: ${{ github.event_name }}
           MANUAL_TAG_NAME: ${{ inputs.tag_name }}
+          CALLER_TARGET_TAG: ${{ inputs.target_tag }}
           DISPATCH_REF_TYPE: ${{ github.ref_type }}
           DISPATCH_REF_NAME: ${{ github.ref_name }}
           DISPATCH_SHA: ${{ github.sha }}
@@ -61,6 +61,14 @@ jobs:
           WORKFLOW_RUN_HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
         run: |
           set -euo pipefail
+
+          if [ "$EVENT_NAME" = "workflow_call" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "target_tag=${CALLER_TARGET_TAG}" >> "$GITHUB_OUTPUT"
+            echo "target_sha=workflow_call" >> "$GITHUB_OUTPUT"
+            echo "Resolved from caller: tag=$CALLER_TARGET_TAG"
+            exit 0
+          fi
 
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             if [ -n "${MANUAL_TAG_NAME:-}" ]; then
@@ -111,22 +119,22 @@ jobs:
           echo "Resolved tag: $target_tag"
           echo "Resolved sha: $target_sha"
 
-      - name: Set context from caller (workflow_call)
-        id: context
-        if: ${{ github.event_name == 'workflow_call' }}
-        run: |
-          echo "ready=true" >> "$GITHUB_OUTPUT"
-          echo "target_tag=${{ inputs.target_tag }}" >> "$GITHUB_OUTPUT"
-          echo "target_sha=workflow_call" >> "$GITHUB_OUTPUT"
-
       - name: Locate latest successful builds
         id: runs
-        if: ${{ steps.context.outputs.ready == 'true' && github.event_name != 'workflow_call' }}
+        if: ${{ steps.context.outputs.ready == 'true' }}
         uses: actions/github-script@v9
         env:
+          EVENT_NAME: ${{ github.event_name }}
           TARGET_SHA: ${{ steps.context.outputs.target_sha }}
+          CALLER_RUN_ID: ${{ inputs.x64_run_id }}
         with:
           script: |
+            if (process.env.EVENT_NAME === 'workflow_call') {
+              core.setOutput('publishable', 'true');
+              core.setOutput('x64_run_id', process.env.CALLER_RUN_ID);
+              return;
+            }
+
             const workflows = [
               { key: 'x64', file: 'build-x64.yml' },
             ];
@@ -172,13 +180,6 @@ jobs:
               core.setOutput(name, value);
             }
 
-      - name: Set run context from caller (workflow_call)
-        id: runs
-        if: ${{ github.event_name == 'workflow_call' }}
-        run: |
-          echo "publishable=true" >> "$GITHUB_OUTPUT"
-          echo "x64_run_id=${{ inputs.x64_run_id }}" >> "$GITHUB_OUTPUT"
-
   publish-release:
     needs: resolve-release-context
     if: ${{ needs.resolve-release-context.outputs.ready == 'true' && needs.resolve-release-context.outputs.publishable == 'true' }}
@@ -201,60 +202,3 @@ jobs:
           overwrite_files: true
           files: |
             artifacts/x64/ungoogled-chromium*
-
-  update-binaries:
-    needs:
-      - resolve-release-context
-      - publish-release
-    if: ${{ needs.resolve-release-context.outputs.ready == 'true' && needs.resolve-release-context.outputs.publishable == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout ungoogled-chromium-windows
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.resolve-release-context.outputs.target_tag }}
-          path: ungoogled-chromium-windows
-      - name: Checkout ungoogled-chromium-binaries
-        uses: actions/checkout@v6
-        with:
-          repository: Nifury/ungoogled-chromium-binaries
-          token: ${{ secrets.PAT }}
-          path: ungoogled-chromium-binaries
-      - name: Rebase onto upstream master
-        working-directory: ungoogled-chromium-binaries
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git remote add upstream https://github.com/ungoogled-software/ungoogled-chromium-binaries.git
-          git fetch upstream
-          git rebase upstream/master
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-      - name: Install dependencies
-        run: pip install requests
-      - name: Run gen.py
-        working-directory: ungoogled-chromium-binaries
-        env:
-          RELEASE_TAG: ${{ needs.resolve-release-context.outputs.target_tag }}
-        run: python ../ungoogled-chromium-windows/.github/scripts/gen.py
-      - name: Commit and push
-        working-directory: ungoogled-chromium-binaries
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add config/platforms/windows/
-          git commit -m "Update Windows binaries for ${{ needs.resolve-release-context.outputs.target_tag }}"
-          git push --force-with-lease
-      - name: Create pull request
-        working-directory: ungoogled-chromium-binaries
-        run: |
-          gh pr create \
-            --repo ungoogled-software/ungoogled-chromium-binaries \
-            --head Nifury:master \
-            --base master \
-            --title "Update Windows binaries for ${{ needs.resolve-release-context.outputs.target_tag }}" \
-            --body "Automated update of Windows binary hashes for release ${{ needs.resolve-release-context.outputs.target_tag }}."
-        env:
-          GH_TOKEN: ${{ secrets.PAT }}
