@@ -1,6 +1,11 @@
 name: publish-release
 on:
   workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "要发布的版本"
+        required: true
+        type: string
   workflow_run:
     workflows:
       - build-x64
@@ -12,7 +17,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: publish-release-${{ github.event.workflow_run.head_sha || github.sha }}
+  group: publish-release-${{ github.event.workflow_run.head_sha || inputs.tag_name || github.sha }}
   cancel-in-progress: false
 
 jobs:
@@ -38,6 +43,7 @@ jobs:
         id: context
         env:
           EVENT_NAME: ${{ github.event_name }}
+          MANUAL_TAG_NAME: ${{ inputs.tag_name }}
           DISPATCH_REF_TYPE: ${{ github.ref_type }}
           DISPATCH_REF_NAME: ${{ github.ref_name }}
           DISPATCH_SHA: ${{ github.sha }}
@@ -48,13 +54,22 @@ jobs:
           set -euo pipefail
 
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            if [ "$DISPATCH_REF_TYPE" != "tag" ]; then
-              echo "Manual publish only runs on a tag ref. Current ref type: $DISPATCH_REF_TYPE"
+            if [ -n "${MANUAL_TAG_NAME:-}" ]; then
+              if ! git rev-parse -q --verify "refs/tags/$MANUAL_TAG_NAME" >/dev/null; then
+                echo "Tag '$MANUAL_TAG_NAME' does not exist."
+                echo "ready=false" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              target_tag="$MANUAL_TAG_NAME"
+              target_sha="$(git rev-list -n 1 "$target_tag")"
+            elif [ "$DISPATCH_REF_TYPE" = "tag" ]; then
+              target_tag="$DISPATCH_REF_NAME"
+              target_sha="$DISPATCH_SHA"
+            else
+              echo "Manual publish requires a tag_name input or must be run on a tag ref. Current ref type: $DISPATCH_REF_TYPE"
               echo "ready=false" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-            target_tag="$DISPATCH_REF_NAME"
-            target_sha="$DISPATCH_SHA"
           else
             if [ "$WORKFLOW_RUN_HEAD_REPOSITORY" != "$GITHUB_REPOSITORY" ]; then
               echo "Triggered by a fork run; skipping publish."
