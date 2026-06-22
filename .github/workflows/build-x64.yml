@@ -16,6 +16,7 @@ on:
       - "*"
 
 permissions:
+  actions: read
   contents: write
 
 concurrency:
