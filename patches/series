@@ -26,3 +26,4 @@ ungoogled-chromium/windows/windows-fix-python.patch
 ungoogled-chromium/windows/windows-fix-typescript-lib-dom.patch
 ungoogled-chromium/windows/windows-disable-private-verification-tokens.patch
 ungoogled-chromium/windows/windows-optimization.patch
+third_party/ffmpeg/hevc-software-decoding.patch
