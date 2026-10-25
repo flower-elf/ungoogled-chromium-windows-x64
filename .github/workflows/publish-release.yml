@@ -1,11 +1,22 @@
 name: publish-release
 on:
   workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "要发布的版本"
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      target_tag:
+        required: true
+        type: string
+      x64_run_id:
+        required: true
+        type: string
   workflow_run:
     workflows:
       - build-x64
-      - build-x86
-      - build-arm
     types:
       - completed
 
@@ -14,12 +25,12 @@ permissions:
   contents: write
 
 concurrency:
-  group: publish-release-${{ github.event.workflow_run.head_sha || github.sha }}
+  group: publish-release-${{ github.event.workflow_run.head_sha || inputs.tag_name || github.sha }}
   cancel-in-progress: false
 
 jobs:
   resolve-release-context:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') }}
     runs-on: ubuntu-latest
     outputs:
       ready: ${{ steps.context.outputs.ready }}
@@ -27,8 +38,6 @@ jobs:
       target_tag: ${{ steps.context.outputs.target_tag }}
       target_sha: ${{ steps.context.outputs.target_sha }}
       x64_run_id: ${{ steps.runs.outputs.x64_run_id }}
-      x86_run_id: ${{ steps.runs.outputs.x86_run_id }}
-      arm_run_id: ${{ steps.runs.outputs.arm_run_id }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -42,6 +51,8 @@ jobs:
         id: context
         env:
           EVENT_NAME: ${{ github.event_name }}
+          MANUAL_TAG_NAME: ${{ inputs.tag_name }}
+          CALLER_TARGET_TAG: ${{ inputs.target_tag }}
           DISPATCH_REF_TYPE: ${{ github.ref_type }}
           DISPATCH_REF_NAME: ${{ github.ref_name }}
           DISPATCH_SHA: ${{ github.sha }}
@@ -51,14 +62,31 @@ jobs:
         run: |
           set -euo pipefail
 
+          if [ "$EVENT_NAME" = "workflow_call" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "target_tag=${CALLER_TARGET_TAG}" >> "$GITHUB_OUTPUT"
+            echo "target_sha=workflow_call" >> "$GITHUB_OUTPUT"
+            echo "Resolved from caller: tag=$CALLER_TARGET_TAG"
+            exit 0
+          fi
+
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            if [ "$DISPATCH_REF_TYPE" != "tag" ]; then
-              echo "Manual publish only runs on a tag ref. Current ref type: $DISPATCH_REF_TYPE"
+            if [ -n "${MANUAL_TAG_NAME:-}" ]; then
+              if ! git rev-parse -q --verify "refs/tags/$MANUAL_TAG_NAME" >/dev/null; then
+                echo "Tag '$MANUAL_TAG_NAME' does not exist."
+                echo "ready=false" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              target_tag="$MANUAL_TAG_NAME"
+              target_sha="$(git rev-list -n 1 "$target_tag")"
+            elif [ "$DISPATCH_REF_TYPE" = "tag" ]; then
+              target_tag="$DISPATCH_REF_NAME"
+              target_sha="$DISPATCH_SHA"
+            else
+              echo "Manual publish requires a tag_name input or must be run on a tag ref. Current ref type: $DISPATCH_REF_TYPE"
               echo "ready=false" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-            target_tag="$DISPATCH_REF_NAME"
-            target_sha="$DISPATCH_SHA"
           else
             if [ "$WORKFLOW_RUN_HEAD_REPOSITORY" != "$GITHUB_REPOSITORY" ]; then
               echo "Triggered by a fork run; skipping publish."
@@ -96,13 +124,19 @@ jobs:
         if: ${{ steps.context.outputs.ready == 'true' }}
         uses: actions/github-script@v9
         env:
+          EVENT_NAME: ${{ github.event_name }}
           TARGET_SHA: ${{ steps.context.outputs.target_sha }}
+          CALLER_RUN_ID: ${{ inputs.x64_run_id }}
         with:
           script: |
+            if (process.env.EVENT_NAME === 'workflow_call') {
+              core.setOutput('publishable', 'true');
+              core.setOutput('x64_run_id', process.env.CALLER_RUN_ID);
+              return;
+            }
+
             const workflows = [
               { key: 'x64', file: 'build-x64.yml' },
-              { key: 'x86', file: 'build-x86.yml' },
-              { key: 'arm', file: 'build-arm.yml' },
             ];
             const targetSha = process.env.TARGET_SHA;
             const outputs = { publishable: 'true' };
@@ -160,24 +194,6 @@ jobs:
           repository: ${{ github.repository }}
           run-id: ${{ needs.resolve-release-context.outputs.x64_run_id }}
 
-      - name: Download x86 package
-        uses: actions/download-artifact@v8
-        with:
-          name: chromium-x86
-          path: artifacts/x86
-          github-token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          run-id: ${{ needs.resolve-release-context.outputs.x86_run_id }}
-
-      - name: Download arm package
-        uses: actions/download-artifact@v8
-        with:
-          name: chromium-arm
-          path: artifacts/arm
-          github-token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          run-id: ${{ needs.resolve-release-context.outputs.arm_run_id }}
-
       - name: Publish release
         uses: softprops/action-gh-release@v3
         with:
@@ -185,90 +201,4 @@ jobs:
           fail_on_unmatched_files: true
           overwrite_files: true
           files: |
-            artifacts/**/ungoogled-chromium*
-
-  publish-winget:
-    needs:
-      - resolve-release-context
-      - publish-release
-    if: ${{ needs.resolve-release-context.outputs.ready == 'true' && needs.resolve-release-context.outputs.publishable == 'true' }}
-    runs-on: ubuntu-slim
-    env:
-      # Pinned: komac 2.17.x drops the previous manifest's installer settings
-      KOMAC_VERSION: 2.16.0
-      TAG: ${{ needs.resolve-release-context.outputs.target_tag }}
-      GITHUB_TOKEN: ${{ secrets.PAT }}
-      KOMAC_FORK_OWNER: Nifury
-      FORCE_HYPERLINK: 0
-    steps:
-      - name: Install komac
-        run: |
-          curl -fsSL "https://github.com/russellbanks/Komac/releases/download/v${KOMAC_VERSION}/komac-${KOMAC_VERSION}-x86_64-unknown-linux-gnu.tar.gz" | tar xz -C "$RUNNER_TEMP" komac
-          echo "$RUNNER_TEMP" >> $GITHUB_PATH
-      - name: Submit to winget-pkgs
-        run: |
-          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}"
-          urls=()
-          for arch in x86 x64 arm64; do
-            urls+=("${base}/ungoogled-chromium_${TAG}_installer_${arch}.exe" "${base}/ungoogled-chromium_${TAG}_windows_${arch}.zip")
-          done
-          komac sync-fork
-          komac update eloston.ungoogled-chromium --version "${TAG%%-*}" --urls "${urls[@]}" --submit
-          komac cleanup --only-merged
-
-  update-binaries:
-    needs:
-      - resolve-release-context
-      - publish-release
-    if: ${{ needs.resolve-release-context.outputs.ready == 'true' && needs.resolve-release-context.outputs.publishable == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout ungoogled-chromium-windows
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.resolve-release-context.outputs.target_tag }}
-          path: ungoogled-chromium-windows
-      - name: Checkout ungoogled-chromium-binaries
-        uses: actions/checkout@v7
-        with:
-          repository: Nifury/ungoogled-chromium-binaries
-          token: ${{ secrets.PAT }}
-          path: ungoogled-chromium-binaries
-      - name: Rebase onto upstream master
-        working-directory: ungoogled-chromium-binaries
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git remote add upstream https://github.com/ungoogled-software/ungoogled-chromium-binaries.git
-          git fetch upstream
-          git rebase upstream/master
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-      - name: Install dependencies
-        run: pip install requests
-      - name: Run gen.py
-        working-directory: ungoogled-chromium-binaries
-        env:
-          RELEASE_TAG: ${{ needs.resolve-release-context.outputs.target_tag }}
-        run: python ../ungoogled-chromium-windows/.github/scripts/gen.py
-      - name: Commit and push
-        working-directory: ungoogled-chromium-binaries
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add config/platforms/windows/
-          git commit -m "Update Windows binaries for ${{ needs.resolve-release-context.outputs.target_tag }}"
-          git push --force-with-lease
-      - name: Create pull request
-        working-directory: ungoogled-chromium-binaries
-        run: |
-          gh pr create \
-            --repo ungoogled-software/ungoogled-chromium-binaries \
-            --head Nifury:master \
-            --base master \
-            --title "Update Windows binaries for ${{ needs.resolve-release-context.outputs.target_tag }}" \
-            --body "Automated update of Windows binary hashes for release ${{ needs.resolve-release-context.outputs.target_tag }}."
-        env:
-          GH_TOKEN: ${{ secrets.PAT }}
+            artifacts/x64/ungoogled-chromium*
