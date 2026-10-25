@@ -1,0 +1,44 @@
+name: Manual Update Submodules
+
+on:
+  workflow_dispatch:
+    inputs:
+      commitMessage:
+        description: 'commit message for submodule updates'
+        required: false
+        default: 'chore(submodules): Update submodules to latest commit'
+
+jobs:
+  update-submodules:
+    name: Update Submodules
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          submodules: 'recursive'
+
+
+      - name: Update all submodules to latest
+        run: git submodule update --init --remote --force
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if [[ -z $(git status --porcelain) ]]; then
+            echo "No changes to commit."
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "Submodules updated. There are changes to commit."
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.has_changes == 'true'
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git commit -am "${{ github.event.inputs.commitMessage }}"
+          git push
